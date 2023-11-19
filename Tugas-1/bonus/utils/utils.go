@@ -7,8 +7,11 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/pem"
+	"fmt"
 	"log"
 	"net"
+	"os"
 )
 
 func Decrypt(ciphertextBytes []byte, privateKey *rsa.PrivateKey) (string, error) {
@@ -75,6 +78,48 @@ func EncryptWithSessionKey(plaintext, key []byte) []byte {
 	return encryptedMessage
 }
 
+func ReadPrivateKeyFromFile(filePath string) (*rsa.PrivateKey, error) {
+	privateKeyPEM, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	block, _ := pem.Decode(privateKeyPEM)
+	if block == nil {
+		log.Printf("Error parsing PEM block containing the private key in %s", filePath)
+		return nil, fmt.Errorf("failed to parse PEM block containing the private key in %s", filePath)
+	}
+
+	privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		log.Printf("Error parsing private key: %s", err)
+		return nil, err
+	}
+
+	return privateKey, nil
+}
+
+func ReadPublicKeyFromFile(filePath string) (*rsa.PublicKey, error) {
+	publicKeyPEM, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	block, _ := pem.Decode(publicKeyPEM)
+	if block == nil {
+		log.Printf("Error parsing PEM block containing the public key in %s", filePath)
+		return nil, fmt.Errorf("failed to parse PEM block containing the public key in %s", filePath)
+	}
+
+	publicKey, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		log.Printf("Error parsing public key: %s", err)
+		return nil, err
+	}
+
+	return publicKey.(*rsa.PublicKey), nil
+}
+
 func ReceiveMessage(conn net.Conn) ([]byte, error) {
 	messageBytes := make([]byte, 2048)
 	n, err := conn.Read(messageBytes)
@@ -83,18 +128,6 @@ func ReceiveMessage(conn net.Conn) ([]byte, error) {
 		return nil, err
 	}
 	return messageBytes[:n], nil
-}
-
-func SendPublicKey(conn net.Conn, publicKey *rsa.PublicKey) error {
-	publicKeyBytes := x509.MarshalPKCS1PublicKey(publicKey)
-
-	_, err := conn.Write(publicKeyBytes)
-	if err != nil {
-		log.Printf("Error sending public key: %s", err)
-		return err
-	}
-
-	return nil
 }
 
 func ReceivePublicKey(conn net.Conn) (*rsa.PublicKey, error) {
@@ -111,6 +144,71 @@ func ReceivePublicKey(conn net.Conn) (*rsa.PublicKey, error) {
 	}
 
 	return publicKey, nil
+}
+
+func SavePrivateKeyToFile(privateKey *rsa.PrivateKey, filePath string) error {
+	privateKeyBytes := x509.MarshalPKCS1PrivateKey(privateKey)
+
+	privateKeyPEM := pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: privateKeyBytes,
+	}
+
+	file, err := os.Create(filePath)
+	if err != nil {
+		log.Printf("Error creating file: %s", err)
+		return err
+	}
+	defer file.Close()
+
+	err = pem.Encode(file, &privateKeyPEM)
+	if err != nil {
+		log.Printf("Error encoding private key: %s", err)
+		return err
+	}
+
+	log.Printf("Private key exported to %s", filePath)
+	return nil
+}
+
+func SavePublicKeyToFile(publicKey *rsa.PublicKey, filePath string) error {
+	publicKeyBytes, err := x509.MarshalPKIXPublicKey(publicKey)
+	if err != nil {
+		return err
+	}
+
+	publicKeyPEM := pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: publicKeyBytes,
+	}
+
+	file, err := os.Create(filePath)
+	if err != nil {
+		log.Printf("Error creating file: %s", err)
+		return err
+	}
+	defer file.Close()
+
+	err = pem.Encode(file, &publicKeyPEM)
+	if err != nil {
+		log.Printf("Error encoding public key: %s", err)
+		return err
+	}
+
+	log.Printf("Public key exported to %s", filePath)
+	return nil
+}
+
+func SendPublicKey(conn net.Conn, publicKey *rsa.PublicKey) error {
+	publicKeyBytes := x509.MarshalPKCS1PublicKey(publicKey)
+
+	_, err := conn.Write(publicKeyBytes)
+	if err != nil {
+		log.Printf("Error sending public key: %s", err)
+		return err
+	}
+
+	return nil
 }
 
 func Sign(message string, privateKey *rsa.PrivateKey) (string, error) {

@@ -5,23 +5,49 @@ import (
 	"crypto/rsa"
 	"log"
 	"net"
+	"os"
 	"time"
 
 	"github.com/JayantiTA/information-security/bonus/utils"
 )
 
 var clientPrivateKey *rsa.PrivateKey
+var clientPublicKey *rsa.PublicKey
 
 const (
-	authSuccess   = "Authentication successful!"
-	authChallenge = "Authentication challenge: prove your identity"
+	authSuccess = "Authentication successful!"
 )
 
 func init() {
-	var err error
-	clientPrivateKey, err = rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		log.Fatalf("Error generating client private key: %s", err)
+	// Generate client's public and private keys if they don't exist
+	// Read client's public and private keys if they exist
+	if _, err := os.Stat("./client_public.pem"); os.IsNotExist(err) {
+		clientPrivateKey, err = rsa.GenerateKey(rand.Reader, 2048)
+		if err != nil {
+			log.Fatalf("Error generating client private key: %s", err)
+		}
+
+		err = utils.SavePrivateKeyToFile(clientPrivateKey, "./client_private.pem")
+		if err != nil {
+			log.Fatalf("Error exporting private key: %s", err)
+		}
+
+		clientPublicKey = &clientPrivateKey.PublicKey
+		err = utils.SavePublicKeyToFile(clientPublicKey, "./client_public.pem")
+		if err != nil {
+			log.Fatalf("Error exporting public key: %s", err)
+		}
+	} else {
+		log.Printf("Read client key from file.")
+		clientPrivateKey, err = utils.ReadPrivateKeyFromFile("./client_private.pem")
+		if err != nil {
+			log.Fatalf("Error reading client private key: %s", err)
+		}
+
+		clientPublicKey, err = utils.ReadPublicKeyFromFile("./client_public.pem")
+		if err != nil {
+			log.Fatalf("Error reading client public key: %s", err)
+		}
 	}
 }
 
@@ -33,8 +59,14 @@ func exchangeKeys(conn net.Conn) (*rsa.PublicKey, error) {
 		return nil, err
 	}
 
+	// Export server's public key to file
+	err = utils.SavePublicKeyToFile(serverPublicKey, "./server_public.pem")
+	if err != nil {
+		log.Printf("Error exporting server's public key: %s", err)
+		return nil, err
+	}
+
 	// Send client's public key to the server
-	clientPublicKey := &clientPrivateKey.PublicKey
 	err = utils.SendPublicKey(conn, clientPublicKey)
 	if err != nil {
 		log.Printf("Error sending client's public key: %s", err)
@@ -117,6 +149,20 @@ func exchangeMessage(conn net.Conn, serverPublicKey *rsa.PublicKey) error {
 	// Pause for 1 second to simulate delay
 	time.Sleep(1 * time.Second)
 
+	serverResponse, err := utils.ReceiveMessage(conn)
+	if err != nil {
+		log.Printf("Error receiving server response: %s", err)
+		return err
+	}
+
+	// Decrypt the server response
+	decryptedServerResponse := utils.DecryptWithSessionKey(serverResponse, []byte(sessionKey))
+	if err != nil {
+		log.Printf("Error decrypting server response: %s", err)
+		return err
+	}
+	log.Printf("Received server response: %s", decryptedServerResponse)
+
 	// Encrypt and send a message to the server
 	message := "Hello, Server! This is a secret message."
 	ciphertextWithSessionKey := utils.EncryptWithSessionKey([]byte(message), []byte(sessionKey))
@@ -133,7 +179,9 @@ func exchangeMessage(conn net.Conn, serverPublicKey *rsa.PublicKey) error {
 }
 
 func main() {
-	serverAddr := "localhost:8080"
+	serverAddr := "localhost:8888"
+
+	var serverPublicKey *rsa.PublicKey
 
 	// Connect to the server
 	conn, err := net.Dial("tcp", serverAddr)
@@ -142,18 +190,25 @@ func main() {
 	}
 	defer conn.Close()
 
-	// Exchange public keys
-	serverPublicKey, err := exchangeKeys(conn)
-	if err != nil {
-		log.Fatalf("Error exchanging public keys: %s", err)
+	// STEP 1: Exchange public keys if the client has not been authenticated
+	if _, err := os.Stat("./server_public.pem"); os.IsNotExist(err) {
+		serverPublicKey, err = exchangeKeys(conn)
+		if err != nil {
+			log.Fatalf("Error exchanging public keys: %s", err)
+		}
+	} else {
+		serverPublicKey, err = utils.ReadPublicKeyFromFile("./server_public.pem")
+		if err != nil {
+			log.Fatalf("Error reading server public key: %s", err)
+		}
 	}
 
-	// Authenticate with the server
+	// STEP 2: Authenticate with the server
 	if !authenticateServer(conn, serverPublicKey) {
 		log.Fatalf("Server authentication failed.")
 	}
 
-	// Exchange messages with the server
+	// STEP 3: Exchange messages with the server
 	err = exchangeMessage(conn, serverPublicKey)
 	if err != nil {
 		log.Fatalf("Error exchanging message: %s", err)
