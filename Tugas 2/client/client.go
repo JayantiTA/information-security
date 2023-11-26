@@ -62,9 +62,9 @@ func readPublicKeyFromFile(filePath string) (*rsa.PublicKey, error) {
 	return publicKey.(*rsa.PublicKey), nil
 }
 
-func GenerateSignature(message []byte, privateKey *rsa.PrivateKey) ([]byte, error) {
+func GenerateSignature(message []byte, clientPrivKey *rsa.PrivateKey) ([]byte, error) {
 	hashed := sha256.Sum256(message)
-	signature, err := rsa.SignPKCS1v15(nil, privateKey, crypto.SHA256, hashed[:])
+	signature, err := rsa.SignPKCS1v15(nil, clientPrivKey, crypto.SHA256, hashed[:])
 	if err != nil {
 		return nil, fmt.Errorf("Error to generate signature: %s", err)
 	}
@@ -174,12 +174,12 @@ func main() {
 	message = []byte{4}
 
 
-	signature, err := GenerateSignature(secretKey, clientPrivateKey)
+	signature, _ := GenerateSignature(secretKey, clientPrivateKey)
 
 	message = append(message, signature...)
 
 	// cetak ke layar step 10
-	fmt.Printf("\n==== Step 1 ====\n")
+	fmt.Printf("\n==== Step 10 ====\n")
 	fmt.Println("Client: kirim pesan ke server, berisikan signature yang sudah dienkrip dengan client_private.key")
 	fmt.Printf("Ciphertext:\n%v\n", base64.StdEncoding.EncodeToString(signature))
 	

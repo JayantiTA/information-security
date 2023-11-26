@@ -47,12 +47,6 @@ func (this *Callback) OnMessage(c *gotcp.Conn, p gotcp.Packet) bool {
 	body := echoPacket.GetBody()
 
 	if body[0] == 1 {
-		// Membaca kunci privat server dari file
-		serverPrivateKey, err := readPrivateKeyFromFile("server_private.key")
-		if err != nil {
-			fmt.Println("Error reading server private key:", err)
-			return false
-		}
 		getBody := echoPacket.GetBody()[1:]
 
 		decryptedData, err := rsa.DecryptPKCS1v15(rand.Reader, serverPrivateKey, getBody)
@@ -60,31 +54,23 @@ func (this *Callback) OnMessage(c *gotcp.Conn, p gotcp.Packet) bool {
 		
 		fmt.Println("data :", decryptedData)
 
-		n1 = decryptedData[2:]
+		n1 = decryptedData[6:]
 		n2 = []byte{8, 9, 10, 11, 12, 13, 14, 15}
 
 		decryptedData = append(n1, n2...)
 
 		fmt.Println(decryptedData)
 
-		encryptedData, err := rsa.EncryptPKCS1v15(rand.Reader, clientPublicKey, decryptedData)
+		encryptedData, _ := rsa.EncryptPKCS1v15(rand.Reader, clientPublicKey, decryptedData)
 		
-		check(err)
 		fmt.Println(encryptedData)
 
 		paket := echo.NewEchoPacket([]byte(encryptedData), false)
 		c.AsyncWritePacket(paket, time.Second)
 	} else if body[0] == 2 {
-		// Membaca kunci privat server dari file
-		serverPrivateKey, err := readPrivateKeyFromFile("server_private.key")
-		if err != nil {
-			fmt.Println("Error reading server private key:", err)
-			return false
-		}
 		getBody := echoPacket.GetBody()[1:]
 
-		decryptedData, err := rsa.DecryptPKCS1v15(rand.Reader, serverPrivateKey, getBody)
-		check(err)
+		decryptedData, _ := rsa.DecryptPKCS1v15(rand.Reader, serverPrivateKey, getBody)
 		
 		fmt.Println("data :", decryptedData)
 
@@ -96,16 +82,9 @@ func (this *Callback) OnMessage(c *gotcp.Conn, p gotcp.Packet) bool {
 		paket := echo.NewEchoPacket([]byte("OK1"), false)
 		c.AsyncWritePacket(paket, time.Second)
 	} else if body[0] == 3 {
-		// Membaca kunci privat server dari file
-		serverPrivateKey, err := readPrivateKeyFromFile("server_private.key")
-		if err != nil {
-			fmt.Println("Error reading server private key:", err)
-			return false
-		}
 		getBody := echoPacket.GetBody()[1:]
 
-		secretKey, err := rsa.DecryptPKCS1v15(rand.Reader, serverPrivateKey, getBody)
-		check(err)
+		secretKey, _ = rsa.DecryptPKCS1v15(rand.Reader, serverPrivateKey, getBody)
 
 		fmt.Println("Secret Key:", secretKey)
 
@@ -118,7 +97,7 @@ func (this *Callback) OnMessage(c *gotcp.Conn, p gotcp.Packet) bool {
 		err := rsa.VerifyPKCS1v15(clientPublicKey, crypto.SHA256, hashed[:], getBody)
 
 		if err != nil {
-			fmt.Println("Error when verifying signature")
+			fmt.Println("Error verifying signature")
 			c.Close()
 			return true
 		}
@@ -176,9 +155,6 @@ func readPublicKeyFromFile(filePath string) (*rsa.PublicKey, error) {
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
-	//privateKey, _ = helper.ImportPrivateKey("Server/key.rsa")
-	//clientPubKey, _ = helper.ImportPublicKey("Client/key.rsa.pub")
-	
 	serverPrivateKey, _ = readPrivateKeyFromFile("server_private.key")
 	clientPublicKey, _ = readPublicKeyFromFile("../client/client_public.key")
 
