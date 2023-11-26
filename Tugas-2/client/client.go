@@ -8,10 +8,10 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
-	"os"
 	"fmt"
 	"log"
 	"net"
+	"os"
 
 	"github.com/gansidui/gotcp/examples/echo"
 )
@@ -106,18 +106,16 @@ func main() {
 	fmt.Printf("\n==== Step 1 ====\n")
 	fmt.Println("Client: kirim pesan ke server, berisikan id1 yang sudah dienkrip dengan server_public.key")
 	fmt.Printf("Ciphertext:\n%v\n", base64.StdEncoding.EncodeToString(encryptedData))
-	
+
 	// handshake 1
 	conn.Write(echo.NewEchoPacket(message, false).Serialize())
 	p, err := echoProtocol.ReadPacket(conn)
-
-	fmt.Println(err)
 
 	n2 := []byte{}
 
 	if err == nil {
 		echoPacket := p.(*echo.EchoPacket)
-		
+
 		decryptedData, _ := rsa.DecryptPKCS1v15(rand.Reader, clientPrivateKey, echoPacket.GetBody())
 		fmt.Printf("\n==== Step 3 ====\n")
 		fmt.Printf("Server reply:[%v] [%v]\n", echoPacket.GetLength(), decryptedData)
@@ -135,7 +133,7 @@ func main() {
 	fmt.Printf("\n==== Step 4 ====\n")
 	fmt.Println("Client: kirim pesan ke server, berisikan Nonce 2 yang sudah dienkrip dengan server_public.key")
 	fmt.Printf("Ciphertext:\n%v\n", base64.StdEncoding.EncodeToString(encryptedData))
-	
+
 	// handshake 2
 	conn.Write(echo.NewEchoPacket([]byte(message), false).Serialize())
 	p, err = echoProtocol.ReadPacket(conn)
@@ -158,7 +156,7 @@ func main() {
 	fmt.Printf("\n==== Step 7 ====\n")
 	fmt.Println("Client: kirim pesan ke server, berisikan secret key yang sudah dienkrip dengan server_public.key")
 	fmt.Printf("Ciphertext:\n%v\n", base64.StdEncoding.EncodeToString(encryptedData))
-	
+
 	// handshake 3
 	conn.Write(echo.NewEchoPacket([]byte(message), false).Serialize())
 	p, err = echoProtocol.ReadPacket(conn)
@@ -173,7 +171,6 @@ func main() {
 
 	message = []byte{4}
 
-
 	signature, _ := GenerateSignature(secretKey, clientPrivateKey)
 
 	message = append(message, signature...)
@@ -182,7 +179,7 @@ func main() {
 	fmt.Printf("\n==== Step 10 ====\n")
 	fmt.Println("Client: kirim pesan ke server, berisikan signature yang sudah dienkrip dengan client_private.key")
 	fmt.Printf("Ciphertext:\n%v\n", base64.StdEncoding.EncodeToString(signature))
-	
+
 	// handshake 2
 	conn.Write(echo.NewEchoPacket([]byte(message), false).Serialize())
 	p, err = echoProtocol.ReadPacket(conn)
