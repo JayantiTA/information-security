@@ -26,12 +26,6 @@ type Response struct {
 	EncryptedInfoToA string
 }
 
-func generateNonceKdc() []byte {
-	nonce := make([]byte, 8)
-	rand.Read(nonce)
-	return nonce
-}
-
 func (k *KDC) RequestSessionKey(req Request, res *Response) error {
 	fmt.Printf("Menerima permintaan dari %s: %s || %s || %s\n\n", req.FromID, req.FromID, req.ToID, base64.StdEncoding.EncodeToString(req.Nonce))
 
@@ -40,27 +34,43 @@ func (k *KDC) RequestSessionKey(req Request, res *Response) error {
 		return fmt.Errorf("invalid sender ID")
 	}
 
-	nonce := generateNonceKdc()
-	fmt.Printf("Nonce yang dihasilkan (N1): %s\n\n", base64.StdEncoding.EncodeToString(nonce))
-
 	sessionKey := generateSessionKey()
+	fmt.Printf("Kunci sesi yang dihasilkan (Ks): %s\n\n", base64.StdEncoding.EncodeToString(sessionKey))
 
-	// Langkah 2: Menanggapi A dengan pesan terenkripsi
-	encryptedSessionKeyToA := encryptMessage(req.Session, fmt.Sprintf("%s || %s", base64.StdEncoding.EncodeToString(sessionKey), req.FromID))
+	encryptedSessionKeyToA := encryptMessage(req.Session, base64.StdEncoding.EncodeToString(sessionKey))
 
 	responseToA := Response{
 		SessionKey:       []byte(encryptedSessionKeyToA),
 		EncryptedInfoToA: encryptMessage(req.Session, fmt.Sprintf("%s || %s || %s || %s", base64.StdEncoding.EncodeToString(sessionKey), req.FromID, req.ToID, base64.StdEncoding.EncodeToString(req.Nonce))),
 	}
 
-	fmt.Printf("Menanggapi %s: \nSessionKey: %s\nEncryptedInfoToB: %s\n\n", req.FromID, base64.StdEncoding.EncodeToString(responseToA.SessionKey), responseToA.EncryptedInfoToA)
+	fmt.Printf("Menanggapi %s: \nSessionKey: %s\n\nEncryptedInfoToA: %s\n\n", req.FromID, base64.StdEncoding.EncodeToString(responseToA.SessionKey), responseToA.EncryptedInfoToA)
 
-	// Langkah 3: Meneruskan kunci sesi terenkripsi dan identifier A ke B
+	// Langkah 3: Mengirim respons ke A
 	res.SessionKey = responseToA.SessionKey
-	res.EncryptedInfoToA = encryptMessage(k.MasterPrivateKey.Public().(*rsa.PublicKey), fmt.Sprintf("%s || %s", base64.StdEncoding.EncodeToString(sessionKey), req.FromID))
+	res.EncryptedInfoToA = responseToA.EncryptedInfoToA
 
 	return nil
 }
+
+// func loadPublicKey(filename string) (*rsa.PublicKey, error) {
+// 	file, err := os.ReadFile(filename)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	block, _ := pem.Decode(file)
+// 	if block == nil {
+// 		return nil, fmt.Errorf("failed to parse PEM block containing the public key")
+// 	}
+
+// 	key, err := x509.ParsePKCS1PublicKey(block.Bytes)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	return key, nil
+// }
 
 func generateSessionKey() []byte {
 	sessionKey := make([]byte, 16)
