@@ -8,6 +8,17 @@ import (
 	"log"
 	"net"
 	"net/rpc"
+	"tugas3/utils"
+)
+
+const (
+	publicKeyAFile = "../keys/public_key_A.pem"
+	publicKeyBFile = "../keys/public_key_B.pem"
+)
+
+var (
+	publicKeyA *rsa.PublicKey
+	publicKeyB *rsa.PublicKey
 )
 
 type KDC struct {
@@ -15,15 +26,14 @@ type KDC struct {
 }
 
 type Request struct {
-	FromID  string
-	ToID    string
-	Nonce   []byte
-	Session *rsa.PublicKey
+	FromID string
+	ToID   string
+	Nonce  []byte
 }
 
 type Response struct {
-	SessionKey       []byte
 	EncryptedInfoToA string
+	EncryptedInfoToB string
 }
 
 func (k *KDC) RequestSessionKey(req Request, res *Response) error {
@@ -35,58 +45,52 @@ func (k *KDC) RequestSessionKey(req Request, res *Response) error {
 	}
 
 	sessionKey := generateSessionKey()
-	fmt.Printf("Kunci sesi yang dihasilkan (Ks): %s\n\n", base64.StdEncoding.EncodeToString(sessionKey))
+	encodedSessionKey := base64.StdEncoding.EncodeToString(sessionKey)
+	fmt.Printf("[STEP 2] Kunci sesi yang dihasilkan (Ks): %s\n\n", encodedSessionKey)
 
-	encryptedSessionKeyToA := encryptMessage(req.Session, base64.StdEncoding.EncodeToString(sessionKey))
+	messageToA := fmt.Sprintf("%s || %s || %s || %s", encodedSessionKey, req.FromID, req.ToID, base64.StdEncoding.EncodeToString(req.Nonce))
+	messageToB := fmt.Sprintf("%s || %s", encodedSessionKey, req.FromID)
 
-	responseToA := Response{
-		SessionKey:       []byte(encryptedSessionKeyToA),
-		EncryptedInfoToA: encryptMessage(req.Session, fmt.Sprintf("%s || %s || %s || %s", base64.StdEncoding.EncodeToString(sessionKey), req.FromID, req.ToID, base64.StdEncoding.EncodeToString(req.Nonce))),
+	encryptedInfoToA, err := utils.EncryptMessage(publicKeyA, messageToA)
+	if err != nil {
+		fmt.Printf("Failed to encrypt message to A: %s\n\n", err)
+		return err
 	}
 
-	fmt.Printf("Menanggapi %s: \nSessionKey: %s\n\nEncryptedInfoToA: %s\n\n", req.FromID, base64.StdEncoding.EncodeToString(responseToA.SessionKey), responseToA.EncryptedInfoToA)
+	encryptedInfoToB, err := utils.EncryptMessage(publicKeyB, messageToB)
+	if err != nil {
+		fmt.Printf("Failed to encrypt message to B: %s\n\n", err)
+		return err
+	}
+
+	responseToA := Response{
+		EncryptedInfoToA: encryptedInfoToA,
+		EncryptedInfoToB: encryptedInfoToB,
+	}
 
 	// Langkah 3: Mengirim respons ke A
-	res.SessionKey = responseToA.SessionKey
-	res.EncryptedInfoToA = responseToA.EncryptedInfoToA
+	*res = responseToA
 
 	return nil
 }
 
-// func loadPublicKey(filename string) (*rsa.PublicKey, error) {
-// 	file, err := os.ReadFile(filename)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	block, _ := pem.Decode(file)
-// 	if block == nil {
-// 		return nil, fmt.Errorf("failed to parse PEM block containing the public key")
-// 	}
-
-// 	key, err := x509.ParsePKCS1PublicKey(block.Bytes)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	return key, nil
-// }
-
-func generateSessionKey() []byte {
-	sessionKey := make([]byte, 16)
-	rand.Read(sessionKey)
-	return sessionKey
-}
-
-func encryptMessage(key *rsa.PublicKey, message string) string {
-	encrypted, err := rsa.EncryptPKCS1v15(rand.Reader, key, []byte(message))
+func loadPublicKeys() (*rsa.PublicKey, *rsa.PublicKey) {
+	publicKeyA, err := utils.LoadPublicKey(publicKeyAFile)
 	if err != nil {
-		log.Fatal("Error encrypting message:", err)
+		log.Fatal("Error loading A's public key:", err)
 	}
-	return base64.StdEncoding.EncodeToString(encrypted)
+
+	publicKeyB, err := utils.LoadPublicKey(publicKeyBFile)
+	if err != nil {
+		log.Fatal("Error loading B's public key:", err)
+	}
+
+	return publicKeyA, publicKeyB
 }
 
 func main() {
+	publicKeyA, publicKeyB = loadPublicKeys()
+
 	kdc := new(KDC)
 	kdc.MasterPrivateKey, _ = rsa.GenerateKey(rand.Reader, 2048)
 	rpc.Register(kdc)
@@ -107,8 +111,14 @@ func main() {
 		}
 
 		clientAddr := conn.RemoteAddr()
-		fmt.Printf("Accepted connection from %s\n", clientAddr)
+		fmt.Printf("Accepted connection from %s\n\n", clientAddr)
 
 		go rpc.ServeConn(conn)
 	}
+}
+
+func generateSessionKey() []byte {
+	sessionKey := make([]byte, 16)
+	rand.Read(sessionKey)
+	return sessionKey
 }
