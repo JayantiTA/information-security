@@ -45,7 +45,7 @@ func main() {
 		FromID: "IDA",
 		Nonce1: generateNonce(),
 	}
-	fmt.Printf("[STEP 1] Mengirim permintaan ke Responder: \nFromID: %s\nNonce: %s\n\n", requestToB.FromID, base64.StdEncoding.EncodeToString(requestToB.Nonce1))
+	fmt.Printf("[STEP 1] Mengirim permintaan ke Responder: \nFromID: %s\nNonce1: %s\n\n", requestToB.FromID, base64.StdEncoding.EncodeToString(requestToB.Nonce1))
 
 	var responseFromB BResponse
 	err = client.Call("Responder.RespondToA", requestToB, &responseFromB)
@@ -72,11 +72,11 @@ func main() {
 	fmt.Printf("Nonce2: %s\n\n", components[4])
 
 	// fmt.Printf("[STEP 3] Menerima respon dari Responder: \nEncryptedInfoToA: %s\n\n", responseFromB.EncryptedInfoFromB)
-	encryptedMessageToB, err := utils.EncryptAESAndTransform("Hi Responder! I have read your message", sessionKey)
+	encryptedMessageToB, err := utils.EncryptAESAndTransform(components[4], sessionKey)
 	if err != nil {
 		log.Fatalf("Failed to encrypt message to B: %s", err)
 	}
-	fmt.Printf("[STEP 3] Mengirim pesan terenkripsi [Ks] yang sudah ditransformasi ke B: \n%s\n\n", string("Hi Responder! this is my message to you"))
+	fmt.Printf("[STEP 3] Mengirim Nonce2 yang sudah ditransformasi dan terenkripsi dengan Ks ke Responder: \n%s\n\n", base64.StdEncoding.EncodeToString(encryptedMessageToB))
 
 	var responseFromB2 []byte
 	err = client.Call("Responder.ReceiveMessage", encryptedMessageToB, &responseFromB2)

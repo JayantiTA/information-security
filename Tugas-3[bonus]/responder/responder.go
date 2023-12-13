@@ -76,7 +76,9 @@ func (r *Responder) ReceiveMessage(message []byte, response *[]byte) error {
 	}
 
 	// fmt.Printf("[STEP 4] Dekripsi pesan dari Initiator: \n%s\n\n", decryptedMessage)
-	fmt.Printf("Menerima pesan terenkripsi yang telah didekripsi [Ks] & diuntransformasi dari Initiator: \n%s\n", string(decryptedMessage))
+	fmt.Printf("[STEP 4] Menerima Nonce2 dari Initiator: \n")
+	fmt.Printf("Data asli Nonce2 yang diterima: %s\n", base64.StdEncoding.EncodeToString(message))
+	fmt.Printf("Data Nonce2 setelah proses dekripsi dan untransformasi: %s\n", decryptedMessage)
 
 	// Send the ok message back to the initiator
 	encryptedRes, err := utils.EncryptAES("OK pesan initiator diterima", sessionKey)
