@@ -94,19 +94,25 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to decrypt message from B: %s", err)
 	}
-	fmt.Printf("[STEP 4] Pesan terenkripsi dari B: %s\n\n", decryptedMessageFromB)
+	fmt.Printf("[STEP 4] Nonce 2 terenkripsi dari B: %s\n\n", decryptedMessageFromB)
 
 	// Langkah 5: Mengirim pesan terenkripsi ke B
 
 	// Simulate sending the encrypted message to B with transformed nonce
-	encryptedMessageToB, err := utils.EncryptAESAndTransform("Hi Responder! I have read your message", sessionKey)
+	// encryptedMessageToB, err := utils.EncryptAESAndTransform("Hi Responder! I have read your message", sessionKey)
+	// if err != nil {
+	// 	log.Fatalf("Failed to encrypt message to B: %s", err)
+	// }
+
+	// Simulate sending the Nonce 2 transformed and encrypted with session key to B
+	encryptedNonce2, err := utils.EncryptAESAndTransform(decryptedMessageFromB, sessionKey)
 	if err != nil {
-		log.Fatalf("Failed to encrypt message to B: %s", err)
+		log.Fatalf("Failed to encrypt nonce 2: %s", err)
 	}
-	fmt.Printf("[STEP 5] Mengirim pesan terenkripsi yang sudah ditransformasi ke B: %s\n\n", string("Hi Responder! I have read your message"))
+	fmt.Printf("[STEP 5] Mengirim Nonce 2 terenkripsi (Ks) yang sudah ditransformasi ke B: %s\n\n", base64.StdEncoding.EncodeToString(encryptedNonce2))
 
 	var responseFromB2 []byte
-	err = client.Call("Responder.ReceiveMessage", encryptedMessageToB, &responseFromB2)
+	err = client.Call("Responder.ReceiveMessage", encryptedNonce2, &responseFromB2)
 	if err != nil {
 		log.Fatalf("Responder error: %s", err)
 	}

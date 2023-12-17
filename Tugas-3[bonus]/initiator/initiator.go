@@ -63,7 +63,6 @@ func main() {
 		log.Fatalf("failed to decode session key: %s", err)
 	}
 
-	// fmt.Printf("[STEP 3] Menerima respon dari Responder: \nEncryptedInfoToA: %s\n\n", decryptedInfoFromB)
 	fmt.Printf("[STEP 3] Menerima respon dari Responder: \n")
 	fmt.Printf("Kunci sesi yang dihasilkan (Ks): %s\n", base64.StdEncoding.EncodeToString(sessionKey))
 	fmt.Printf("ID A: %s\n", components[1])
@@ -71,7 +70,6 @@ func main() {
 	fmt.Printf("Nonce1: %s\n", components[3])
 	fmt.Printf("Nonce2: %s\n\n", components[4])
 
-	// fmt.Printf("[STEP 3] Menerima respon dari Responder: \nEncryptedInfoToA: %s\n\n", responseFromB.EncryptedInfoFromB)
 	encryptedMessageToB, err := utils.EncryptAESAndTransform(components[4], sessionKey)
 	if err != nil {
 		log.Fatalf("Failed to encrypt message to B: %s", err)

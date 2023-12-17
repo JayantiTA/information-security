@@ -47,16 +47,28 @@ func (r *Responder) ReceiveSessionKey(req string, res *[]byte) error {
 
 	fmt.Printf("[STEP 3] Kunci sesi yang diterima (Ks): %s\n\n", components[0])
 
+	Nonce2 := generateNonce()
+	fmt.Printf("[STEP 4] Nonce 2 yang dihasilkan (Nb): %s\n\n", base64.StdEncoding.EncodeToString(Nonce2))
+
 	// Send the ok message back to the initiator
-	resMessage := "OK1 session key diterima"
-	encryptedRes, err := utils.EncryptAES(resMessage, sessionKey)
+	// resMessage := "OK1 session key diterima"
+	// encryptedRes, err := utils.EncryptAES(resMessage, sessionKey)
+	// if err != nil {
+	// 	fmt.Printf("Failed to encrypt response message: %s\n\n", err)
+	// 	return err
+	// }
+
+	// send the nonce 2 to A encrypted with session key
+	encryptedNonce2, err := utils.EncryptAES(base64.StdEncoding.EncodeToString(Nonce2), sessionKey)
 	if err != nil {
-		fmt.Printf("Failed to encrypt response message: %s\n\n", err)
+		fmt.Printf("Failed to encrypt nonce 2: %s\n\n", err)
 		return err
 	}
 
-	fmt.Printf("[STEP 4] Mengirim pesan terenkripsi ke A: %s\n\n", resMessage)
-	*res = encryptedRes
+	// fmt.Printf("[STEP 4] Mengirim pesan terenkripsi ke A: %s\n", resMessage)
+	fmt.Printf("[STEP 4] Mengirim nonce 2 terenkripsi dengan Ks ke A: %s\n\n", base64.StdEncoding.EncodeToString(encryptedNonce2))
+
+	*res = encryptedNonce2
 
 	return nil
 }
@@ -68,10 +80,13 @@ func (r *Responder) ReceiveMessage(req []byte, res *[]byte) error {
 		return err
 	}
 
-	fmt.Printf("Menerima pesan terenkripsi yang telah diuntransformasi dari A: %s\n\n", string(decryptedMessageFromA))
+	// fmt.Printf("Menerima pesan terenkripsi yang telah diuntransformasi dari A: %s\n\n", string(decryptedMessageFromA))
+	fmt.Printf("[STEP 5] Menerima Nonce2 transformed dari Initiator: \n")
+	fmt.Printf("Data asli Nonce2 yang diterima: %s\n", base64.StdEncoding.EncodeToString(req))
+	fmt.Printf("Data Nonce2 setelah proses dekripsi dan untransformasi: %s\n", decryptedMessageFromA)
 
 	// Send the ok message back to the initiator
-	encryptedRes, err := utils.EncryptAES("OK2 pesan initiator diterima", sessionKey)
+	encryptedRes, err := utils.EncryptAES("OK2 nonce 2 yang ditransformasi telah diterima", sessionKey)
 	if err != nil {
 		fmt.Printf("Failed to encrypt response message: %s\n\n", err)
 		return err
@@ -80,6 +95,12 @@ func (r *Responder) ReceiveMessage(req []byte, res *[]byte) error {
 	*res = encryptedRes
 
 	return nil
+}
+
+func generateNonce() []byte {
+	nonce := make([]byte, 8)
+	rand.Read(nonce)
+	return nonce
 }
 
 func main() {

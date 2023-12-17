@@ -43,7 +43,6 @@ func (r *Responder) RespondToA(request Request, response *Response) error {
 	Nonce2 := generateNonce()
 	IDB := "IDB"
 
-	// messageToA := fmt.Sprintf("%s || %s", encodedSessionKey, base64.StdEncoding.EncodeToString(request.Nonce1))
 	messageToA := fmt.Sprintf("%s || %s || %s || %s || %s", encodedSessionKey, request.FromID, IDB, base64.StdEncoding.EncodeToString(request.Nonce1), base64.StdEncoding.EncodeToString(Nonce2))
 
 	encryptedInfoToA, err := utils.EncryptMessage(publicKeyA, messageToA)
@@ -75,7 +74,6 @@ func (r *Responder) ReceiveMessage(message []byte, response *[]byte) error {
 		log.Fatalf("failed to decrypt message from Initiator: %s", err)
 	}
 
-	// fmt.Printf("[STEP 4] Dekripsi pesan dari Initiator: \n%s\n\n", decryptedMessage)
 	fmt.Printf("[STEP 4] Menerima Nonce2 dari Initiator: \n")
 	fmt.Printf("Data asli Nonce2 yang diterima: %s\n", base64.StdEncoding.EncodeToString(message))
 	fmt.Printf("Data Nonce2 setelah proses dekripsi dan untransformasi: %s\n", decryptedMessage)
